@@ -5,8 +5,7 @@ import h5py, matplotlib.pyplot as plt
 from pathlib import Path
 from datetime import datetime
 
-
-from match_data_with_metadata import match_units_to_hdf5
+from .match_data_with_metadata import match_units_to_hdf5  
 
 
 __all__ = ["population_activity_by_region"]
