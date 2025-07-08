@@ -2,6 +2,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA
+
 
 __all__ = ["pca_summary", "plot_pca_cumsum"]
 
