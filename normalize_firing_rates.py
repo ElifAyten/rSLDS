@@ -1,5 +1,4 @@
-# src/normalize_firing_rates.py
-from sklearn.preprocessing import StandardScaler   # ← NEW LINE
+from sklearn.preprocessing import StandardScaler  
 
 __all__ = ["normalize_firing_rates"]
 
