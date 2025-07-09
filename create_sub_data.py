@@ -51,19 +51,21 @@ def export_area_splits(
     if units.empty:
         raise ValueError(f"No rows for {rat_tag} in {units_csv}")
 
-    # open HDF5 once 
     with h5py.File(h5_path, "r") as f:
-        time_vec  = f["time"][...]
-        speed     = f["speed"][...]
-        rates_all = f["firing_rates"][...]          # (n_units × T)
-        spike_grp = f["spike_times"]
-        raw_keys  = list(spike_grp.keys())          # ex: cluster1234_0
+        time_vec   = f["time"][...]
+        speed      = f["speed"][...]
+        rates_all  = f["firing_rates"][...]    # (n_units × T)
 
-    #  build mapping clean-key → row-index & spike counts
-    clean_keys  = [k.split("_")[0] for k in raw_keys]           # cluster1234
-    clean2raw   = dict(zip(clean_keys, raw_keys))
+        # read spike_times *inside* the with-block
+        raw_keys   = list(f["spike_times"].keys())     # e.g. ["cluster1234_0", …]
+        spike_counts = np.array([ len(f["spike_times"][k]) 
+                                   for k in raw_keys ])
+    # <-- once you hit this line, f (and f["spike_times"]) is closed.  
+
+    # now raw_keys and spike_counts are plain Python/NumPy objects you can use
+    clean_keys  = [k.split("_")[0] for k in raw_keys]    # ["cluster1234", …]
+    clean2raw   = dict(zip(clean_keys,   raw_keys))
     key2idx     = {clean: i for i, clean in enumerate(clean_keys)}
-    spike_counts= np.array([spike_grp[clean2raw[c]].size for c in clean_keys])
     is_active   = spike_counts >= min_spikes
 
     # keep only units present in the file and active
