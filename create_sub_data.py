@@ -1,4 +1,4 @@
- # rSLDS/create_sub_data.py
+# rSLDS/create_sub_data.py
 import os
 import h5py
 import numpy as np
@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Dict, List
 
 def _macro_area(area: str) -> str | None:
-    """Map fine labels to coarse macro-areas."""
+    """Map fine labels to coarse macro‐areas."""
     a = area.lower()
     if a.startswith("d"): return "dorsal"
     if a.startswith("v"): return "ventral"
@@ -23,51 +23,47 @@ def export_area_splits(
     verbose     : bool = True
 ) -> Dict[str, List[str]]:
     """
-    Create dorsal/ventral/thalamus splits from one rat's HDF5 + units.csv.
-    hdf5_path must be the .hdf5 file itself, not its folder.
-    rat_tag    a string like "Rat3" or "Rat15".
+    Create wide+long CSVs for dorsal / ventral / thalamus populations.
+    - hdf5_path: full path to the .hdf5 file
+    - units_csv: master units.csv
+    - out_dir:   directory to write your *_wide.csv and *_long.csv
+    - rat_tag:   e.g. "Rat3" or "Rat15"
     """
-    # prepare output folder
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # read metadata
+    # 1) read the metadata for just this rat
     units = (
         pd.read_csv(units_csv)
           .query("rat == @rat_tag")
           .assign(
-             hdf5_key=lambda df: "cluster" + df["cluster"].astype(str),
-             macro    = lambda df: df["area"].map(_macro_area)
+            hdf5_key=lambda df: "cluster" + df["cluster"].astype(str),
+            macro    = lambda df: df["area"].map(_macro_area)
           )
           .dropna(subset=["macro"])
     )
     if units.empty:
         raise ValueError(f"No rows for {rat_tag} in {units_csv}")
 
-    # open HDF5 and pull everything we need *inside* the with
+    # 2) pull everything from the HDF5 *inside* the with‐block
     with h5py.File(hdf5_path, "r") as f:
         time_vec   = f["time"][...]
         speed      = f["speed"][...]
-        rates_all  = f["firing_rates"][...]      # (n_units × T)
+        rates_all  = f["firing_rates"][...]    # shape (n_units × T)
         spike_grp  = f["spike_times"]
-        raw_keys   = list(spike_grp.keys())      # e.g. cluster1234_0
+        raw_keys   = list(spike_grp.keys())    # e.g. "cluster1031_0", …
 
-        # build clean-to-raw mapping and count spikes *while file is open*
-        clean_keys   = [k.split("_")[0] for k in raw_keys]
-        clean2raw    = dict(zip(clean_keys, raw_keys))
-        key2idx      = {clean: i for i, clean in enumerate(clean_keys)}
-        spike_counts = np.array([spike_grp[raw].size
-                                 for raw in raw_keys])
+        # build map: exact raw_key → row index in rates_all
+        key2idx    = {k: i for i, k in enumerate(raw_keys)}
+        spike_counts = np.array([ spike_grp[k].size for k in raw_keys ])
         is_active    = spike_counts >= min_spikes
 
-    # now file is closed, but we have time_vec, speed, rates_all,
-    # clean2raw, key2idx, is_active, and units DataFrame
-
-    # keep only units present in HDF5 and active
+    # 3) keep only those metadata rows whose hdf5_key matches one of raw_keys
     units = (
-        units[units["hdf5_key"].isin(clean2raw)]
-             .assign(row_idx=lambda df: df["hdf5_key"].map(key2idx))
+      units[units["hdf5_key"].isin(raw_keys)]
+           .assign(row_idx=lambda df: df["hdf5_key"].map(key2idx))
     )
+    # mask by activity
     units = units[units["row_idx"].notna() & is_active[units["row_idx"].astype(int)]]
     units["row_idx"] = units["row_idx"].astype(int)
 
@@ -80,9 +76,9 @@ def export_area_splits(
         if sub.empty:
             if verbose: print(f"[{macro}] skipped (no units)")
             continue
-        if verbose: print(f"[{macro}] {len(sub)} neurons")
+        if verbose: print(f"[{macro}] {len(sub)} neurons → exporting")
 
-        # wide
+        # wide-format CSV
         wide = pd.DataFrame(rates_all[sub.row_idx].T,
                             columns=sub["cluster"].astype(str))
         wide.insert(0, "time_s", time_vec)
@@ -90,7 +86,7 @@ def export_area_splits(
         wide_path = out_dir / f"{macro}_wide.csv"
         wide.to_csv(wide_path, index=False)
 
-        # long
+        # long-format CSV
         recs = []
         for _, row in sub.iterrows():
             rates = rates_all[row.row_idx]
@@ -109,7 +105,7 @@ def export_area_splits(
 
         exported[macro] = [str(wide_path), str(long_path)]
         if verbose:
-            print(f"[{macro}] wrote {wide_path.name} & {long_path.name}")
+            print(f"[{macro}] wrote {wide_path.name} + {long_path.name}")
 
     if verbose:
         print(f"✓ All splits saved in: {out_dir}/")
