@@ -5,7 +5,7 @@ import pandas as pd
 from pathlib import Path
 
 from match_data_with_metadata import match_units_to_hdf5
-from dataset                 import load_rat_data
+from load_dataset                 import load_rat_data
 
 __all__ = ["get_responsive_subsets"]
 
