@@ -2,7 +2,7 @@
 import os, pickle, h5py, numpy as np, pandas as pd, matplotlib.pyplot as plt
 from pathlib import Path
 from sklearn.decomposition import PCA
-import ssm                              # pip install ssm==0.0.1  (or your fork)
+import ssm                                 # pip install ssm==0.0.1 (or your fork)
 
 __all__ = ["fit_single_rslds"]
 
@@ -12,7 +12,7 @@ def _footshock_vector(t, shock_times):
     idx = np.searchsorted(t, shock_times)
     idx = np.clip(idx, 0, len(t) - 1)
     v[idx] = 1.0
-    return v[:, None]                   # (T, 1)
+    return v[:, None]                      # shape (T, 1)
 
 def _auto_latent_dim(fr_z, variance_goal=0.90, cap=30):
     pcs = PCA().fit(fr_z)
@@ -21,42 +21,58 @@ def _auto_latent_dim(fr_z, variance_goal=0.90, cap=30):
     return int(min(d, cap))
 
 # ---------------------------------------------------------------------
-def fit_single_rslds(h5_path,
-                     csv_path,
-                     save_dir,
-                     *,
-                     variance_goal=0.90,
-                     latent_dim   = None,
-                     K_states     = 2,
-                     num_iters    = 300,
-                     overwrite    = False,
-                     verbose      = True):
+def fit_single_rslds(
+    h5_path,
+    csv_path,
+    save_dir,
+    *,
+    variance_goal = 0.90,
+    latent_dim    = None,
+    K_states      = 2,
+    num_iters     = 300,
+    overwrite     = False,
+    verbose       = True,
+):
     """
     Fit an input-driven rSLDS to one rat × area dataset.
 
-    • `h5_path`   : raw HDF5 (must have 'time' and 'footshock_times')
-    • `csv_path`  : *_wide.csv with columns time_s, speed, neuron firing-rates
-    • `save_dir`  : directory where all artefacts will be written
+    Parameters
+    ----------
+    h5_path   : path to the raw HDF5 (must contain 'time' and 'footshock_times')
+    csv_path  : *_wide.csv with columns  time_s,  [speed],  <one column per neuron>
+    save_dir  : directory to write model, arrays, ELBO plot, …
+
+    Other keyword args are identical to the original helper.
     """
+    # ── output folder ─────────────────────────────────────────────────
     save_dir = Path(save_dir)
     if save_dir.exists() and not overwrite:
         raise FileExistsError(f"{save_dir} exists (use overwrite=True)")
     save_dir.mkdir(parents=True, exist_ok=True)
 
     # ── load CSV ──────────────────────────────────────────────────────
-    df    = pd.read_csv(csv_path)
-    t     = df.pop("time_s").values
-    speed = df.pop("speed").values
-    FR    = df.values.astype(float)           # (T, N_neurons)
+    df = pd.read_csv(csv_path)
+    t  = df.pop("time_s").values
 
-    # ── foot-shock vector ────────────────────────────────────────────
+    if "speed" in df.columns:
+        speed = df.pop("speed").values
+        if verbose:
+            print("✓ speed column found in CSV")
+    else:
+        with h5py.File(h5_path, "r") as h5:
+            speed = h5["speed"][...]
+        if verbose:
+            print("ℹ️  speed column missing → loaded from HDF5")
+
+    FR = df.values.astype(float)           # (T, N_neurons)
+
+    # ── foot-shock regressor ─────────────────────────────────────────
     with h5py.File(h5_path, "r") as h5:
         shock_times = h5["footshock_times"][...]
-    u = _footshock_vector(t, shock_times)     # (T, 1)
+    u = _footshock_vector(t, shock_times)  # (T, 1)
 
-    # ── z-score firing-rates ─────────────────────────────────────────
-    mu   = FR.mean(0, keepdims=True)
-    sd   = FR.std(0, keepdims=True)
+    # ── z-score firing rates ─────────────────────────────────────────
+    mu, sd = FR.mean(0, keepdims=True), FR.std(0, keepdims=True)
     sd[sd == 0] = 1.0
     FR_z = (FR - mu) / sd
 
@@ -68,14 +84,14 @@ def fit_single_rslds(h5_path,
 
     # ── build & fit rSLDS ────────────────────────────────────────────
     model = ssm.SLDS(
-        FR_z.shape[1],        # N_obs  (number of neurons)
-        K_states,             # K      (discrete states)
-        latent_dim,           # D_latent
-        M=1,                  # one external regressor (foot-shock)
-        transitions="inputdriven",
-        dynamics="gaussian",
-        emissions="ar",
-        single_subspace=True,
+        FR_z.shape[1],          # D_obs  (number of neurons)
+        K_states,               # K      (discrete states)
+        latent_dim,             # D_latent
+        M = 1,                  # one external regressor (foot-shock)
+        transitions    = "inputdriven",
+        dynamics       = "gaussian",
+        emissions      = "ar",
+        single_subspace= True,
     )
 
     elbos, post = model.fit(
@@ -93,9 +109,9 @@ def fit_single_rslds(h5_path,
     with open(save_dir / "rSLDS.pkl", "wb") as f:
         pickle.dump(model, f)
 
-    for name, obj in [("emissions", model.emissions),
+    for name, obj in [("emissions",   model.emissions),
                       ("transitions", model.transitions),
-                      ("dynamics", model.dynamics)]:
+                      ("dynamics",    model.dynamics)]:
         with open(save_dir / f"{name}.pkl", "wb") as f:
             pickle.dump(obj, f)
 
@@ -106,7 +122,7 @@ def fit_single_rslds(h5_path,
     np.save(save_dir / "footshock.npy", u)
     np.save(save_dir / "speed.npy",     speed)
 
-    # ELBO convergence plot
+    # ── ELBO convergence plot ────────────────────────────────────────
     plt.figure()
     plt.plot(elbos)
     plt.xlabel("iteration")
@@ -124,3 +140,4 @@ def fit_single_rslds(h5_path,
                 x_hat=x_hat,
                 z_hat=z_hat,
                 save_dir=str(save_dir))
+
