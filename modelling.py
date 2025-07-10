@@ -67,16 +67,17 @@ def fit_single_rslds(h5_path,
             print(f"latent_dim auto→ {latent_dim}")
 
     # -------- build & fit rSLDS
-    model = ssm.SLDS(
-        D_obs = FR_z.shape[1],
-        K     = K_states,
-        D_latent = latent_dim,
-        M     = 1,
-        transitions = "inputdriven",
-        dynamics    = "gaussian",
-        emissions   = "ar",
-        single_subspace = True
-    )
+# -------- build & fit rSLDS
+model = ssm.SLDS(
+    FR_z.shape[1],      # N_obs  (number of neurons)
+    K_states,           # K
+    latent_dim,         # D_latent
+    M=1,                # one external regressor (foot-shock)
+    transitions="inputdriven",
+    dynamics="gaussian",
+    emissions="ar",
+    single_subspace=True
+)
 
     elbos, post = model.fit(
         [FR_z], inputs=[u],
