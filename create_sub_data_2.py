@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from metadata import match_units_to_hdf5   # your existing helper
-from dataset  import load_rat_data          # your existing loader
+from load_dataset  import load_rat_data          # your existing loader
 
 __all__ = ["get_responsive_subsets"]
 
