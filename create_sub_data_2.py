@@ -21,39 +21,42 @@ def get_responsive_subsets(
     verbose         = True
 ):
     """
-    Return a dict of {resp_type: {time, speed, rates, metadata}} for one rat.
+    Return {resp_type: dict(time, speed, rates, metadata)} for the given rat.
 
-    - time     : (T,)         array of time points
-    - speed    : (T,) or None running speed if present
-    - rates    : (T, N_resp)  firing‐rates for each responsive neuron
-    - metadata : pd.DataFrame  subset of units.csv matching those neurons
+    * rates shape: (T, N_resp) — time first, neurons second
+    * metadata rows match those columns
     """
-    # 1) match metadata rows to HDF5 spike‐indices
+    # 1) match metadata to HDF5 indices
     mapping = match_units_to_hdf5(
         units_csv, base_dir, rat_id,
         h5_prefix=h5_prefix, verbose=False
     )
 
-    # 2) load HDF5 once
+    # 2) load everything you need from HDF5, _inside_ the with‐block
     rat_dir = Path(base_dir) / f"Rat{int(rat_id)}"
     h5_path = next(rat_dir.glob(f"{h5_prefix}*.hdf5"))
     with h5py.File(h5_path, "r") as f:
-        time_vec  = f["time"][...]
-        speed     = f["speed"][...] if "speed" in f else None
-        # firing_rates in file are stored as (neurons × time), we want (time × neurons)
-        rates_all = f["firing_rates"][...].T
-        spikes    = f[spike_group]
+        time_vec   = f["time"][...]
+        speed      = f["speed"][...] if "speed" in f else None
+        # transpose so we get (T, N_total)
+        rates_all  = f["firing_rates"][...].T
 
-    # 3) activity mask (≥ min_spikes per neuron)
-    spike_counts = np.array([spikes[k].size for k in spikes.keys()])
-    active_mask  = spike_counts >= min_spikes
-    keep_idx     = mapping["firing_rate_index"].values
-    mapping      = mapping[active_mask[keep_idx]]
+        # pull out the raw cluster keys and counts
+        raw_keys     = list(f[spike_group].keys())  
+        spike_counts = np.array([
+            f[spike_group][k].size
+            for k in raw_keys
+        ])
+
+    # 3) activity mask
+    active_mask = spike_counts >= min_spikes
+    keep_idx    = mapping["firing_rate_index"].values
+    mapping     = mapping[active_mask[keep_idx]]
 
     if verbose:
         print(f"Rat{rat_id}: {len(mapping)} units ≥ {min_spikes} spikes")
 
-    # 4) split by responsiveness
+    # 4) split out each responsiveness type
     out = {}
     for resp in responsive_types:
         sub = mapping[mapping["neuron_type"] == resp]
@@ -73,3 +76,4 @@ def get_responsive_subsets(
             print(f"{resp:>9s}: {len(idx)} units → subset built")
 
     return out
+
