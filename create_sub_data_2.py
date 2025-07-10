@@ -5,7 +5,7 @@ import pandas as pd
 from pathlib import Path
 
 from match_data_with_metadata import match_units_to_hdf5
-from load_dataset             import load_rat_data
+from dataset                 import load_rat_data
 
 __all__ = ["get_responsive_subsets"]
 
@@ -21,50 +21,55 @@ def get_responsive_subsets(
     verbose=True
 ):
     """
-    Return {resp_type: dict(time, speed, rates, metadata)} for the given rat.
+    Return a dict mapping each response‐type (from the 'shocks_response' column)
+    to a sub‐dataset dict with keys ['time','speed','rates','metadata'].
 
-    rates shape: (T, N_resp) — time first, neurons second
-    metadata rows match those columns.
+    - rates: (T, N_resp)
+    - metadata: subset of the units.csv rows matching those neurons
     """
     # 1) metadata ↔ HDF5 index
-    mapping = match_units_to_hdf5(units_csv, base_dir, rat_id,
-                                  h5_prefix=h5_prefix, verbose=False)
+    mapping = match_units_to_hdf5(
+        units_csv, base_dir, rat_id,
+        h5_prefix=h5_prefix, verbose=False
+    )
+    # now `mapping` has all columns from units.csv, including 'shocks_response'
 
-    # 2) load EVERYTHING you need from the HDF5 while it's open
+    # 2) pull raw data out of HDF5 in one block
     rat_dir = Path(base_dir) / f"Rat{int(rat_id)}"
     h5_file = next(rat_dir.glob(f"{h5_prefix}*.hdf5"))
     with h5py.File(h5_file, "r") as f:
-        time_vec   = f["time"][...]
-        speed      = f["speed"][...] if "speed" in f else None
-        # (n_units × T) → transpose → (T, n_units)
-        rates_all  = f["firing_rates"][...].T
-        # pull out all spike‐time arrays into a dict so it stays alive
-        spikes_dict = {k: f[spike_group][k][...] for k in f[spike_group].keys()}
+        time_vec  = f["time"][...]
+        speed     = f["speed"][...] if "speed" in f else None
+        rates_all = f["firing_rates"][...].T    # (T, n_units)
+        spikes    = f[spike_group]              # group of spike‐time arrays
+        # copy spike‐counts into a plain array
+        raw_keys      = list(spikes.keys())
+        spike_counts  = np.array([ spikes[k].size for k in raw_keys ])
+        active_mask   = spike_counts >= min_spikes
+        # build map: raw_keys → firing_rate_index
+        key2idx       = {k: i for i,k in enumerate(raw_keys)}
 
-    # 3) activity mask
-    # now spikes_dict is just a python dict of numpy arrays
-    spike_counts = np.array([len(v) for v in spikes_dict.values()])
-    active_mask  = spike_counts >= min_spikes
-
-    # only keep those rows in mapping whose firing_rate_index is active
-    mapping = mapping.loc[active_mask[mapping.firing_rate_index.values]]
+    # 3) restrict mapping to only those with ≥min_spikes
+    idxs = mapping.firing_rate_index.values
+    keep = active_mask[idxs]
+    mapping = mapping.loc[keep].reset_index(drop=True)
     if verbose:
         print(f"Rat{rat_id}: {len(mapping)} units ≥ {min_spikes} spikes")
 
-    # 4) split out each response type
+    # 4) split out by the *shocks_response* column
     out = {}
     for resp in responsive_types:
-        sub = mapping[mapping.neuron_type == resp]
+        sub = mapping[mapping["shocks_response"] == resp]
         if sub.empty:
             if verbose:
-                print(f"{resp}: none → skipped")
+                print(f"{resp:>12s}: none → skipped")
             continue
         idx = sub.firing_rate_index.values
         out[resp] = dict(
             time     = time_vec,
             speed    = speed,
             rates    = rates_all[:, idx],
-            metadata = sub.reset_index(drop=True),
+            metadata = sub.copy()
         )
         if verbose:
             print(f"{resp:>12s}: {len(idx)} units")
