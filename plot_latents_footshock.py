@@ -1,22 +1,32 @@
-# ── src/plot_latents_with_footshock.py ────────────────────────────────
-import os, numpy as np, matplotlib.pyplot as plt
+import os
+import numpy as np
+import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter1d
 
-__all__ = ["load_and_plot_latents"]
+__all__ = [
+    "plot_latents_from_dir",  # convenience one‑liner
+    "load_and_plot_latents",  # legacy API
+]
 
-# ---------------------------------------------------------------------
-def _plot_latents(latents, shocks, *,
-                  time_axis=None,
-                  integrate=True,
-                  smooth_sigma=0.0,
-                  colors=("tab:blue",),
-                  figsize=(10,4)):
-    """
-    Internal plotting helper – works on plain arrays.
-    """
+# -----------------------------------------------------------------------------
+# Internal helper – agnostic to where the data came from
+# -----------------------------------------------------------------------------
+
+def _plot_latents(
+    latents,
+    shocks,
+    *,
+    time_axis=None,
+    integrate=True,
+    smooth_sigma=0.0,
+    colors=("tab:blue",),
+    figsize=(10, 4),
+):
+    """Plot every latent dimension and overlay foot‑shock onsets (red dashed)."""
+
     T, D = latents.shape
     if time_axis is None:
-        time_axis = np.linspace(0, T-1, T)     # generic x-axis
+        time_axis = np.arange(T)  # generic x‑axis (index)
 
     shock_times = time_axis[np.squeeze(shocks > 0)]
 
@@ -30,59 +40,78 @@ def _plot_latents(latents, shocks, *,
             trace = np.cumsum(trace)
 
         col = colors[d % len(colors)]
-        ax.plot(time_axis, trace, color=col, label=f"latent {d+1}")
+        ax.plot(time_axis, trace, color=col, label=f"Latent {d + 1}")
         ax.set_xlabel("time (index)" if time_axis is None else "time (s)")
         ax.set_ylabel("value")
-        ttl = f"latent {d+1}"
-        ttl += " (int)" if integrate else ""
-        ax.set_title(ttl)
+        ax.set_title(f"Latent {d + 1}")  # removed " (int)" suffix
 
-        # red shock markers
         for st in shock_times:
             ax.axvline(st, color="red", ls="--", lw=1, alpha=0.6)
 
-        ax.legend(); ax.grid(True, alpha=.3)
-        plt.tight_layout(); plt.show()
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.show()
 
-# ---------------------------------------------------------------------
-def load_and_plot_latents(base_dir,
-                          rat_tag,
-                          model_sub,
-                          *,
-                          x_pattern      = "x_hat_{rat}.npy",
-                          shock_pattern  = "footshock_input{rat}.npy",
-                          integrate      = True,
-                          smooth_sigma   = 0.0,
-                          colors         = ("tab:blue",),
-                          figsize        = (10,4)):
-    """
-    Find x_hat / footshock .npy files inside
-        <base_dir>/<model_sub>/,
-    then plot every latent dimension with shock markers.
 
-    Parameters
-    ----------
-    base_dir  : str
-        Root path to search (e.g. '/content/drive/MyDrive').
-    rat_tag   : str
-        Text that appears in the filenames ('RAT15', 'RAT13', …).
-    model_sub : str
-        Folder name under base_dir that actually holds the .npy files.
-    x_pattern : str
-        Filename pattern for latents (default 'x_hat_{rat}.npy').
-    shock_pattern : str
-        Pattern for shock regressor (default 'footshock_input{rat}.npy').
-    integrate : bool
-        True  → cumulative sum before plotting.
-    smooth_sigma : float
-        σ for Gaussian smoothing; 0 disables smoothing.
-    """
+# -----------------------------------------------------------------------------
+# 1) Convenience entry‑point matching artefacts saved by fit_single_rslds
+# -----------------------------------------------------------------------------
+
+def plot_latents_from_dir(
+    save_dir,
+    *,
+    integrate=True,
+    smooth_sigma=0.0,
+    colors=("tab:blue",),
+    figsize=(10, 4),
+):
+    """Load ``x_hat.npy`` & ``footshock.npy`` from *save_dir* and plot latents."""
+
+    x_file = os.path.join(save_dir, "x_hat.npy")
+    shock_file = os.path.join(save_dir, "footshock.npy")
+
+    if not os.path.isfile(x_file):
+        raise FileNotFoundError(x_file)
+    if not os.path.isfile(shock_file):
+        raise FileNotFoundError(shock_file)
+
+    latents = np.load(x_file)
+    shocks = np.load(shock_file)
+
+    _plot_latents(
+        latents,
+        shocks,
+        integrate=integrate,
+        smooth_sigma=smooth_sigma,
+        colors=colors,
+        figsize=figsize,
+    )
+
+
+# -----------------------------------------------------------------------------
+# 2) Back‑compat wrapper (kept almost identical to the GitHub original)
+# -----------------------------------------------------------------------------
+
+def load_and_plot_latents(
+    base_dir,
+    rat_tag,
+    model_sub,
+    *,
+    x_pattern="x_hat.npy",
+    shock_pattern="footshock.npy",
+    integrate=True,
+    smooth_sigma=0.0,
+    colors=("tab:blue",),
+    figsize=(10, 4),
+):
+    """Locate and plot latent trajectories + shock markers."""
 
     model_dir = os.path.join(base_dir, model_sub)
     if not os.path.isdir(model_dir):
         raise FileNotFoundError(model_dir)
 
-    x_file   = os.path.join(model_dir, x_pattern.format(rat=rat_tag))
+    x_file = os.path.join(model_dir, x_pattern.format(rat=rat_tag))
     shock_file = os.path.join(model_dir, shock_pattern.format(rat=rat_tag))
 
     if not os.path.isfile(x_file):
@@ -90,11 +119,15 @@ def load_and_plot_latents(base_dir,
     if not os.path.isfile(shock_file):
         raise FileNotFoundError(shock_file)
 
-    latents = np.load(x_file)            # (T, D)
-    shocks  = np.load(shock_file)        # (T,) or (T,1)
+    latents = np.load(x_file)
+    shocks = np.load(shock_file)
 
-    _plot_latents(latents, shocks,
-                  integrate=integrate,
-                  smooth_sigma=smooth_sigma,
-                  colors=colors,
-                  figsize=figsize)
+    _plot_latents(
+        latents,
+        shocks,
+        integrate=integrate,
+        smooth_sigma=smooth_sigma,
+        colors=colors,
+        figsize=figsize,
+    )
+
