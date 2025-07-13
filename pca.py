@@ -33,7 +33,7 @@ def pca_summary(data, *, var_targets=(0.90, 0.95), elbow_drop=0.01):
         }
         One key per var_target.
     """
-    X = data if data.shape[0] < data.shape[1] else data.T   # ensure (samples, features)
+    X = data   # ensure (samples, features)
 
     pca = PCA()
     pca.fit(X)
