@@ -1,9 +1,10 @@
-import os, pickle, numpy as np, matplotlib.pyplot as plt
+import os
+import pickle
+import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 
-__all__ = ["plot_rslds_vector_field"]
-
-def plot_rslds_vector_field(
+def plot_rslds_vector_field_corrected(
     model_dir,
     *,
     n_components = 2,
@@ -19,11 +20,12 @@ def plot_rslds_vector_field(
     """
     model_dir = os.fspath(model_dir)
 
-    # ── load latent arrays ───────────────────────────────────────────
-    x_hat = np.load([f for f in os.listdir(model_dir)
-                     if f.startswith("x_hat")][0], allow_pickle=True)
-    z_hat = np.load([f for f in os.listdir(model_dir)
-                     if f.startswith("z_hat")][0], allow_pickle=True)
+    # ── load latent arrays (corrected) ───────────────────────────
+    x_hat_path = os.path.join(model_dir, "x_hat.npy")
+    z_hat_path = os.path.join(model_dir, "z_hat.npy")
+
+    x_hat = np.load(x_hat_path, allow_pickle=True)
+    z_hat = np.load(z_hat_path, allow_pickle=True)
 
     # ── locate the model pickle (new logic) ─────────────────────────
     pkl_candidates = [f for f in os.listdir(model_dir)
@@ -86,3 +88,12 @@ def plot_rslds_vector_field(
 
     fig.tight_layout()
     plt.show()
+
+# Call the corrected function
+model_dir = "/content/drive/My Drive/rSLD 3/rSLD/models_Rat4_ventral"
+plot_rslds_vector_field_corrected(
+    model_dir=model_dir,
+    grid_size=30,
+    cmap="plasma",
+    density=1.0
+)
