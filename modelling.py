@@ -43,7 +43,7 @@ model = ssm.SLDS(
     dynamics="gaussian",
     emissions="ar",
     single_subspace=True,
-):
+)
     """
     Fit an input-driven rSLDS to one rat × area dataset.
 
