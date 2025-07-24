@@ -33,19 +33,16 @@ def _auto_latent_dim(fr, variance_goal=0.90, cap=30):
     return int(min(d, cap))
 
 
-# ---------------------------------------------------------------------
+if "kappa" not in locals():
+    kappa = 0.0        # default if caller didn't provide
 
-def fit_single_rslds(
-    h5_path,
-    csv_path,
-    save_dir,
-    *,
-    variance_goal=0.90,
-    latent_dim=None,
-    K_states=2,
-    num_iters=300,
-    overwrite=False,
-    verbose=True,
+model = ssm.SLDS(
+    FR_z.shape[1], K_states, latent_dim, M=1,
+    transitions="inputdriven",
+    transition_kwargs=dict(kappa=kappa),     # <-- add this
+    dynamics="gaussian",
+    emissions="ar",
+    single_subspace=True,
 ):
     """
     Fit an input-driven rSLDS to one rat × area dataset.
