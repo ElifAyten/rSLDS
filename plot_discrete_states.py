@@ -42,8 +42,11 @@ def plot_discrete_states(
     fig, ax = plt.subplots(figsize=figsize)
     for s, e in zip(starts, ends):
         k = z_states[s]
+        if e >= len(time_vec):
+            continue  # skip this segment if it goes out of bounds
         ax.hlines(y=k, xmin=time_vec[s], xmax=time_vec[e],
                   color=colors[k], lw=lw, alpha=.8)
+
 
     # foot-shock markers, if provided
     if shock_times is not None:
