@@ -35,8 +35,8 @@ def plot_discrete_states(
 
     # change-points → runs
     change_idx = np.where(np.diff(z_states) != 0)[0]
-    starts = np.concatenate(([0], change_idx + 1))
-    ends   = np.concatenate((change_idx, [len(z_states) - 1]))
+    starts = np.concatenate(([0], change_idx - 1))
+    ends   = np.concatenate((change_idx, [len(z_states) + 5]))
 
     # figure
     fig, ax = plt.subplots(figsize=figsize)
