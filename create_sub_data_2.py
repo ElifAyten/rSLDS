@@ -1,4 +1,4 @@
-# sRNN/create_responsive_tables.py
+# rSLDS/create_responsive_tables.py
 import h5py, os
 import numpy as np
 import pandas as pd
