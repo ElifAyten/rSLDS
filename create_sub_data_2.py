@@ -1,4 +1,4 @@
-# rSLDS/create_responsive_tables.py
+# sRNN/create_responsive_tables.py
 import h5py, os
 import numpy as np
 import pandas as pd
@@ -45,7 +45,7 @@ def export_responsive_tables(
     out_dir = Path(out_dir).expanduser()
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # ---------- metadata --------------------------------------------------
+    # metadata 
     units = (
         pd.read_csv(units_csv)
           .query("rat == @rat_tag")
@@ -58,7 +58,7 @@ def export_responsive_tables(
     if responsive.empty:
         raise ValueError(f"No rows with shocks_response in {responses}")
 
-    # ---------- open the HDF5 once ---------------------------------------
+    # open the HDF5 once
     with h5py.File(h5_path, "r") as f:
         time_vec        = f["time"][...]
         dt              = time_vec[1] - time_vec[0]
@@ -77,14 +77,14 @@ def export_responsive_tables(
         if responsive.empty:
             raise ValueError("None of the responsive units are in spike_times.")
 
-        # ---------- histogram & build raw-rate matrix --------------------
+        # histogram & build raw-rate matrix
         raw_rate_df = pd.DataFrame({"time_s": time_vec})
         for _, row in responsive.iterrows():
             st = spikes_grp[row["hdf5_key"]][...]
             counts, _ = np.histogram(st, bins=edges) if st.size else (np.zeros_like(time_vec), _)
             raw_rate_df[row["hdf5_key"]] = counts.astype(float) / dt  # Hz
 
-    # ---------- z-score across time for each neuron ----------------------
+    # z-score across time for each neuron
     rate_cols = [c for c in raw_rate_df.columns if c != "time_s"]
     scaler    = StandardScaler()
     z_rates   = scaler.fit_transform(raw_rate_df[rate_cols].values)
@@ -92,7 +92,7 @@ def export_responsive_tables(
     z_df = pd.DataFrame(z_rates, columns=rate_cols)
     z_df.insert(0, "time_s", raw_rate_df["time_s"].values)
 
-    # ---------- normalise speed & build 0/1 foot-shock vector -----------
+    # normalise speed & build 0/1 foot-shock vector 
     speed_filled = np.nan_to_num(speed, nan=0.0).reshape(-1, 1)
     speed_scaled = MinMaxScaler().fit_transform(speed_filled).flatten()
 
@@ -103,8 +103,7 @@ def export_responsive_tables(
             idx = np.argmin(np.abs(time_vec - ts))
             if abs(time_vec[idx] - ts) <= tol:
                 footshock_vec[idx] = 1
-
-    # ---------- save files ----------------------------------------------
+    #save files
     raw_csv = out_dir / "responsive_rates_raw.csv"
     z_csv   = out_dir / "responsive_rates_z.csv"
     meta_csv= out_dir / "responsive_metadata.csv"
@@ -115,8 +114,7 @@ def export_responsive_tables(
 
     if verbose:
         print(f"✓ wrote {raw_csv.name}, {z_csv.name}, {meta_csv.name}")
-
-    # ---------- return handy arrays -------------------------------------
+    # return arrays
     return dict(
         time        = time_vec,                 # (T,)
         speed_scaled= speed_scaled,             # (T,)
