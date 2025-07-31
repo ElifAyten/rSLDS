@@ -1,3 +1,6 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 def plot_discrete_states(
     z_states, time_vec, shock_times=None, *,
     palette="Set1", lw=4, min_duration=0.5,
