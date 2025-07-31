@@ -76,6 +76,101 @@ def _mi_surrogates(
         np.percentile(null, 95),
         1.0 - percentileofscore(null, raw) / 100.0,
     )
+# --------------------------------------------------------------------------
+#  compare MI before vs. after the first foot-shock
+# --------------------------------------------------------------------------
+def compare_mi_pre_post(
+    *,
+    latents: np.ndarray,
+    signal: np.ndarray,
+    time_vec: np.ndarray,
+    footshock_mask: np.ndarray | np.ndarray,
+    win_s: float = 1.0,
+    integrate_latents: bool = True,
+    shuffle: Literal["circular", "strict", "permute"] = "circular",
+    n_shuffle: int = 500,
+    random_state: int = 0,
+    plot: bool = True,
+):
+    """
+    Compute mutual information (MI) for each latent dimension **before**
+    and **after** the first foot-shock.
+
+    Parameters
+    ----------
+    latents, signal, time_vec
+        Same semantics as `latent_signal_mi`.
+    footshock_mask : (T,) bool or 0/1 array
+        True/1 on the time-points that belong to foot-shock onsets.
+    win_s, integrate_latents, shuffle, n_shuffle, random_state
+        Passed straight through to `latent_signal_mi`.
+    plot : bool, default True
+        If True show a bar-plot comparing pre- and post-shock MI.
+
+    Returns
+    -------
+    pre_rec, post_rec : structured arrays (see `latent_signal_mi`)
+    """
+    footshock_mask = np.asarray(footshock_mask, bool)
+    if footshock_mask.shape != time_vec.shape:
+        raise ValueError("footshock_mask must have the same length as time_vec")
+
+    # ------------------------------------------------------------
+    # Find the first shock onset
+    # ------------------------------------------------------------
+    if not footshock_mask.any():
+        raise ValueError("footshock_mask contains no True entries")
+    first_shock_idx = np.where(footshock_mask)[0][0]
+    t0 = time_vec[first_shock_idx]
+
+    pre_idx  = time_vec < t0
+    post_idx = time_vec >= t0
+
+    if pre_idx.sum() < 10 or post_idx.sum() < 10:
+        raise ValueError("Too few samples in pre- or post-shock segment")
+
+    pre_rec = latent_signal_mi(
+        latents          = latents[pre_idx],
+        signal           = signal[pre_idx],
+        time_vec         = time_vec[pre_idx],
+        win_s            = win_s,
+        integrate_latents= integrate_latents,
+        shuffle          = shuffle,
+        n_shuffle        = n_shuffle,
+        random_state     = random_state,
+    )
+
+    post_rec = latent_signal_mi(
+        latents          = latents[post_idx],
+        signal           = signal[post_idx],
+        time_vec         = time_vec[post_idx],
+        win_s            = win_s,
+        integrate_latents= integrate_latents,
+        shuffle          = shuffle,
+        n_shuffle        = n_shuffle,
+        random_state     = random_state + 1,   # different seed
+    )
+
+    # ------------------------------------------------------------
+    # Optional bar-plot
+    # ------------------------------------------------------------
+    if plot:
+        dims = pre_rec["dim"]
+        x    = np.arange(len(dims))
+        width = 0.35
+
+        fig, ax = plt.subplots(figsize=(0.8*len(dims)+3, 3))
+        ax.bar(x - width/2, pre_rec["MI_raw"], width,
+               label="pre-shock",  color="tab:blue", alpha=.8)
+        ax.bar(x + width/2, post_rec["MI_raw"], width,
+               label="post-shock", color="tab:orange", alpha=.8)
+
+        ax.set_xticks(x); ax.set_xticklabels([f"dim {d}" for d in dims])
+        ax.set_ylabel("Mutual information (bits)")
+        ax.set_title("Pre- vs. post-shock MI per latent dimension")
+        ax.legend();  plt.tight_layout()
+
+    return pre_rec, post_rec
 
 
 # ------------------------------------------------------------------------------
