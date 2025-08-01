@@ -1,3 +1,4 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -40,41 +41,38 @@ def switch_statistics(z_states, time_vec, footshock_mask):
         K              = K,
         t0             = t0,
     )
-# ---------------- pretty wrapper -----------------------------------------
-def plot_switch_summary(z_states, time_vec, footshock_mask, *, figsize=(12,3)):
-    """One-panel summary (count, rate, occupancy) in blue‒red."""
+
+def plot_switch_summary1(z_states, time_vec, footshock_mask, *, figsize=(12,3)):
+    """One-panel summary (count, rate, occupancy) in solid blue & red."""
     s = switch_statistics(z_states, time_vec, footshock_mask)
     K = s["K"]
 
-    # Brewer RdBu colours + hatches
-    C_PRE,  H_PRE  = "#2166AC", "///"   # blue
-    C_POST, H_POST = "#B2182B", "\\\\"  # red
+    C_PRE  = "#2166AC"   # blue   (ColorBrewer RdBu)
+    C_POST = "#B2182B"   # red
 
     fig, axs = plt.subplots(1, 3, figsize=figsize,
                             gridspec_kw=dict(width_ratios=[1,1,2]))
 
-    # --- (1) switch count --------------------------------------------------
+    # (1) switch count
     axs[0].bar(["pre", "post"],
                [s["n_switch_pre"], s["n_switch_post"]],
-               color=[C_PRE, C_POST], hatch=[H_PRE, H_POST])
-    axs[0].set_title("# switches")
+               color=[C_PRE, C_POST])
+    axs[0].set_title("switches")
     for i, v in enumerate([s["n_switch_pre"], s["n_switch_post"]]):
         axs[0].text(i, v, f"{v}", ha="center", va="bottom")
 
-    # --- (2) switch rate ---------------------------------------------------
+    # (2) switch rate
     axs[1].bar(["pre", "post"],
                [s["rate_pre"], s["rate_post"]],
-               color=[C_PRE, C_POST], hatch=[H_PRE, H_POST])
+               color=[C_PRE, C_POST])
     axs[1].set_title("switches / min")
     for i, v in enumerate([s["rate_pre"], s["rate_post"]]):
         axs[1].text(i, v, f"{v:.2f}", ha="center", va="bottom")
 
-    # --- (3) state occupancy ----------------------------------------------
-    x = np.arange(K); w = 0.35
-    axs[2].bar(x-w/2, s["occupancy_pre"],  w,
-               label="pre",  color=C_PRE,  hatch=H_PRE)
-    axs[2].bar(x+w/2, s["occupancy_post"], w,
-               label="post", color=C_POST, hatch=H_POST)
+    # (3) state-occupancy
+    x, w = np.arange(K), 0.35
+    axs[2].bar(x-w/2, s["occupancy_pre"],  w, label="pre",  color=C_PRE)
+    axs[2].bar(x+w/2, s["occupancy_post"], w, label="post", color=C_POST)
     axs[2].set_xticks(x)
     axs[2].set_xticklabels([f"s{k}" for k in x])
     axs[2].set_title("occupancy")
@@ -88,8 +86,9 @@ def plot_switch_summary(z_states, time_vec, footshock_mask, *, figsize=(12,3)):
 
     for ax in axs:
         ax.set_ylim(bottom=0)
-        ax.spines[['top', 'right']].set_visible(False)
+        ax.spines[["top", "right"]].set_visible(False)
 
     plt.tight_layout()
     plt.show()
     return s
+
