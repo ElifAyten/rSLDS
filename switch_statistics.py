@@ -45,62 +45,82 @@ def switch_statistics(z_states, time_vec, footshock_mask):
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_switch_summary2(z_states, time_vec, footshock_mask, *,
-                         figsize=(15, 4), separate=False, dpi=100):
+def plot_switch_summary(
+    z_states,
+    time_vec,
+    footshock_mask,
+    *,
+    figsize=(15, 4),
+    separate=False,          # ← True → three individual figs
+    dpi=100,
+):
     """
-    Show switch count / rate / occupancy.
-
     Parameters
     ----------
-    separate : bool
-        False  → return single 3-panel figure (original behaviour)
-        True   → return list of three single-panel figures
+    z_states, time_vec, footshock_mask : 1-D arrays of equal length
+    figsize  : size for the *combined* fig (ignored if separate=True)
+    separate : if True, return a list of 3 single-panel figures
+    dpi      : resolution for all figures
+
+    Returns
+    -------
+    stats   : dict   (same keys as switch_statistics)
+    figures : list[Figure]  -> [fig] if separate==False else 3 figs
     """
     s = switch_statistics(z_states, time_vec, footshock_mask)
     K = s["K"]
     C_PRE, C_POST = "#2166AC", "#B2182B"
 
-    def _make_ax(tag):
-        fig, ax = plt.subplots(figsize=(5, 3), dpi=dpi)
-        if tag == "count":
+    # ---------------------------------------------------------
+    # helper: make one axis with count / rate / occupancy
+    # ---------------------------------------------------------
+    def _plot(ax, panel):
+        if panel == "count":
             vals = [s["n_switch_pre"], s["n_switch_post"]]
             ax.bar(["pre", "post"], vals, color=[C_PRE, C_POST])
             ax.set_title("Switch count")
             for i, v in enumerate(vals):
                 ax.text(i, v, str(v), ha="center", va="bottom")
-        elif tag == "rate":
+
+        elif panel == "rate":
             vals = [s["rate_pre"], s["rate_post"]]
             ax.bar(["pre", "post"], vals, color=[C_PRE, C_POST])
             ax.set_title("Switches / minute")
             for i, v in enumerate(vals):
                 ax.text(i, v, f"{v:.2f}", ha="center", va="bottom")
-        else:  # occupancy
+
+        elif panel == "occ":
             x, w = np.arange(K), 0.35
             ax.bar(x-w/2, s["occupancy_pre"],  w, label="pre",  color=C_PRE)
             ax.bar(x+w/2, s["occupancy_post"], w, label="post", color=C_POST)
             ax.set_xticks(x); ax.set_xticklabels([f"s{k}" for k in x])
             ax.set_title("State occupancy"); ax.legend(frameon=False)
             for k in x:
-                ax.text(k-w/2, s["occupancy_pre"][k],
-                        f"{s['occupancy_pre'][k]:.1%}", ha="center", va="bottom", fontsize=8)
-                ax.text(k+w/2, s["occupancy_post"][k],
-                        f"{s['occupancy_post'][k]:.1%}", ha="center", va="bottom", fontsize=8)
+                ax.text(k-w/2, s["occupancy_pre"][k],  f"{s['occupancy_pre'][k]:.1%}",
+                        ha="center", va="bottom", fontsize=8)
+                ax.text(k+w/2, s["occupancy_post"][k], f"{s['occupancy_post'][k]:.1%}",
+                        ha="center", va="bottom", fontsize=8)
+
         ax.set_ylim(bottom=0); ax.spines[["top", "right"]].set_visible(False)
-        return fig, ax
 
-    if separate:
-        figs = [_make_ax(tag)[0] for tag in ("count", "rate", "occ")]
-        plt.show()    # display them inline
-        return s, figs
+    # ---------------------------------------------------------
+    # A) combined 3-panel figure
+    # ---------------------------------------------------------
+    if not separate:
+        fig, axs = plt.subplots(1, 3, figsize=figsize, dpi=dpi)
+        fig.subplots_adjust(wspace=0.5)
+        for ax, tag in zip(axs, ["count", "rate", "occ"]):
+            _plot(ax, tag)
+        plt.show()
+        return s, [fig]
 
-    # combined figure (original behaviour)
-    fig, axs = plt.subplots(1, 3, figsize=figsize, dpi=dpi)
-    fig.subplots_adjust(wspace=0.5)
-    for ax, tag in zip(axs, ("count", "rate", "occupancy")):
-        tmp_fig, tmp_ax = _make_ax(tag if tag != "occupancy" else "occ")
-        for artist in tmp_ax.get_children():
-            artist.figure = fig
-            ax._add_text(artist) if isinstance(artist, plt.Text) else ax.add_artist(artist)
-        plt.close(tmp_fig)
-    plt.show()
-    return s, [fig]
+    # ---------------------------------------------------------
+    # B) three stand-alone figures
+    # ---------------------------------------------------------
+    figs = []
+    for tag in ["count", "rate", "occ"]:
+        fig, ax = plt.subplots(figsize=(5, 3), dpi=dpi)
+        _plot(ax, tag)
+        figs.append(fig)
+        plt.show()
+    return s, figs
