@@ -45,58 +45,62 @@ def switch_statistics(z_states, time_vec, footshock_mask):
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_switch_summary2(z_states, time_vec, footshock_mask, *, figsize=(15, 4)):
-    """Three clearly separated panels: switch count, rate, and occupancy."""
+def plot_switch_summary2(z_states, time_vec, footshock_mask, *,
+                         figsize=(15, 4), separate=False, dpi=100):
+    """
+    Show switch count / rate / occupancy.
 
+    Parameters
+    ----------
+    separate : bool
+        False  → return single 3-panel figure (original behaviour)
+        True   → return list of three single-panel figures
+    """
     s = switch_statistics(z_states, time_vec, footshock_mask)
     K = s["K"]
+    C_PRE, C_POST = "#2166AC", "#B2182B"
 
-    C_PRE  = "#2166AC"   # blue   (ColorBrewer RdBu)
-    C_POST = "#B2182B"   # red
+    def _make_ax(tag):
+        fig, ax = plt.subplots(figsize=(5, 3), dpi=dpi)
+        if tag == "count":
+            vals = [s["n_switch_pre"], s["n_switch_post"]]
+            ax.bar(["pre", "post"], vals, color=[C_PRE, C_POST])
+            ax.set_title("Switch count")
+            for i, v in enumerate(vals):
+                ax.text(i, v, str(v), ha="center", va="bottom")
+        elif tag == "rate":
+            vals = [s["rate_pre"], s["rate_post"]]
+            ax.bar(["pre", "post"], vals, color=[C_PRE, C_POST])
+            ax.set_title("Switches / minute")
+            for i, v in enumerate(vals):
+                ax.text(i, v, f"{v:.2f}", ha="center", va="bottom")
+        else:  # occupancy
+            x, w = np.arange(K), 0.35
+            ax.bar(x-w/2, s["occupancy_pre"],  w, label="pre",  color=C_PRE)
+            ax.bar(x+w/2, s["occupancy_post"], w, label="post", color=C_POST)
+            ax.set_xticks(x); ax.set_xticklabels([f"s{k}" for k in x])
+            ax.set_title("State occupancy"); ax.legend(frameon=False)
+            for k in x:
+                ax.text(k-w/2, s["occupancy_pre"][k],
+                        f"{s['occupancy_pre'][k]:.1%}", ha="center", va="bottom", fontsize=8)
+                ax.text(k+w/2, s["occupancy_post"][k],
+                        f"{s['occupancy_post'][k]:.1%}", ha="center", va="bottom", fontsize=8)
+        ax.set_ylim(bottom=0); ax.spines[["top", "right"]].set_visible(False)
+        return fig, ax
 
-    fig, axs = plt.subplots(1, 3, figsize=figsize)
+    if separate:
+        figs = [_make_ax(tag)[0] for tag in ("count", "rate", "occ")]
+        plt.show()    # display them inline
+        return s, figs
 
-    # Adjust spacing between subplots
-    fig.subplots_adjust(wspace=0.5)  # <- increase horizontal space between plots
-
-    # (1) switch count
-    axs[0].bar(["pre", "post"],
-               [s["n_switch_pre"], s["n_switch_post"]],
-               color=[C_PRE, C_POST])
-    axs[0].set_title("Switch Count")
-    axs[0].set_ylabel("Count")
-    for i, v in enumerate([s["n_switch_pre"], s["n_switch_post"]]):
-        axs[0].text(i, v, f"{v}", ha="center", va="bottom")
-
-    # (2) switch rate
-    axs[1].bar(["pre", "post"],
-               [s["rate_pre"], s["rate_post"]],
-               color=[C_PRE, C_POST])
-    axs[1].set_title("Switches / Minute")
-    axs[1].set_ylabel("Rate")
-    for i, v in enumerate([s["rate_pre"], s["rate_post"]]):
-        axs[1].text(i, v, f"{v:.2f}", ha="center", va="bottom")
-
-    # (3) state occupancy
-    x, w = np.arange(K), 0.35
-    axs[2].bar(x - w/2, s["occupancy_pre"],  width=w, label="pre",  color=C_PRE)
-    axs[2].bar(x + w/2, s["occupancy_post"], width=w, label="post", color=C_POST)
-    axs[2].set_xticks(x)
-    axs[2].set_xticklabels([f"s{k}" for k in x])
-    axs[2].set_title("State Occupancy")
-    axs[2].set_ylabel("Fraction")
-    axs[2].legend(frameon=False)
-
-    for k in x:
-        axs[2].text(k - w/2, s["occupancy_pre"][k],
-                    f"{s['occupancy_pre'][k]:.1%}", ha="center", va="bottom", fontsize=8)
-        axs[2].text(k + w/2, s["occupancy_post"][k],
-                    f"{s['occupancy_post'][k]:.1%}", ha="center", va="bottom", fontsize=8)
-
-    for ax in axs:
-        ax.set_ylim(bottom=0)
-        ax.spines[["top", "right"]].set_visible(False)
-
+    # combined figure (original behaviour)
+    fig, axs = plt.subplots(1, 3, figsize=figsize, dpi=dpi)
+    fig.subplots_adjust(wspace=0.5)
+    for ax, tag in zip(axs, ("count", "rate", "occupancy")):
+        tmp_fig, tmp_ax = _make_ax(tag if tag != "occupancy" else "occ")
+        for artist in tmp_ax.get_children():
+            artist.figure = fig
+            ax._add_text(artist) if isinstance(artist, plt.Text) else ax.add_artist(artist)
+        plt.close(tmp_fig)
     plt.show()
-    return s
-
+    return s, [fig]
