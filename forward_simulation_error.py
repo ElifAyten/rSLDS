@@ -1,19 +1,47 @@
-def compute_fse(model, x_hat, u, deltas=(1,5,10)):
+import numpy as np
+import pickle
+import matplotlib.pyplot as plt
+from pathlib import Path
+
+def compute_and_plot_fse(model_dir, n_steps=10, plot=True, model_fname="my_model.pkl"):
     """
-    model: trained ssm.SLDS model
-    x_hat: inferred latent states (T, D)
-    u: input (T, M)
-    deltas: list of step sizes (how far to roll out)
-    Returns: dict of {delta: [MSE...]}
+    Compute and plot Forward Simulation Error (FSE) for an rSLDS model.
+    Args:
+        model_dir: Directory with 'rSLDS.pkl', 'x_hat.npy', 'z_hat.npy' saved.
+        n_steps:   Number of steps to roll forward.
+        plot:      If True, plot the FSE curve.
+        model_fname: Filename of the pickled model (default 'rSLDS.pkl')
+    Returns:
+        mse_steps: Array of mean MSE for 1-step, 2-step, ..., n-step.
     """
-    fse = {d: [] for d in deltas}
-    for d in deltas:
-        for t in range(len(x_hat) - d):
-            # Roll forward for d steps using model dynamics
-            x_pred = x_hat[t].copy()
-            for step in range(d):
-                # This should use the model's transition/dynamics (adapt if needed!)
-                x_pred = model.dynamics.sample(x_pred[None], u[t+step][None])[0]
-            mse = np.mean((x_pred - x_hat[t+d])**2)
-            fse[d].append(mse)
-    return fse
+    # Load model and inferred latents
+    with open(Path(model_dir) / model_fname, "rb") as f:
+        model = pickle.load(f)
+    x_hat = np.load(Path(model_dir) / "x_hat.npy")   # (T, latent_dim)
+    z_hat = np.load(Path(model_dir) / "z_hat.npy")   # (T,)
+
+    # For each t, roll forward latent using AR(1) parameters for the most likely state
+    mse_steps = []
+    T = x_hat.shape[0]
+    for dt in range(1, n_steps + 1):
+        errors = []
+        for t0 in range(T - dt):
+            x_pred = x_hat[t0].copy()
+            z_cur = z_hat[t0]
+            for d in range(dt):
+                # Use AR(1) dynamics for the most likely z
+                A = model.dynamics.As[z_cur]
+                b = model.dynamics.bs[z_cur]
+                x_pred = A @ x_pred + b
+                # Update discrete state if you want (z_cur = z_hat[t0 + d + 1]) -- optional
+            errors.append(np.mean((x_pred - x_hat[t0 + dt]) ** 2))
+        mse_steps.append(np.mean(errors))
+
+    if plot:
+        plt.plot(np.arange(1, n_steps + 1), mse_steps, marker='o')
+        plt.xlabel('Δt steps ahead')
+        plt.ylabel('Forward Simulation MSE (latents)')
+        plt.title('Forward Simulation Error (FSE)')
+        plt.show()
+    return mse_steps
+
