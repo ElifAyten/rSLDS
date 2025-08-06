@@ -4,14 +4,13 @@ import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter1d
 
 __all__ = [
-    "plot_latents_from_dir",  # convenience one‑liner
-    "load_and_plot_latents",  # legacy API
+    "plot_latents_from_dir",   # convenience one-liner
+    "load_and_plot_latents",   # legacy API
 ]
 
 # -----------------------------------------------------------------------------
 # Internal helper – agnostic to where the data came from
 # -----------------------------------------------------------------------------
-
 def _plot_latents(
     latents,
     shocks,
@@ -21,14 +20,19 @@ def _plot_latents(
     smooth_sigma=0.0,
     colors=("tab:blue",),
     figsize=(10, 4),
+    return_fig=False,          # ← NEW
 ):
-    """Plot every latent dimension and overlay foot‑shock onsets (red dashed)."""
+    """Plot every latent dimension and overlay foot-shock onsets (red dashed).
 
+    If `return_fig=True` a *list* of figure handles (one per latent) is returned
+    instead of showing the plots.
+    """
     T, D = latents.shape
     if time_axis is None:
-        time_axis = np.arange(T)  # generic x‑axis (index)
+        time_axis = np.arange(T)            # generic x-axis (index)
 
     shock_times = time_axis[np.squeeze(shocks > 0)]
+    figs = []                               # ← NEW
 
     for d in range(D):
         fig, ax = plt.subplots(figsize=figsize)
@@ -43,7 +47,7 @@ def _plot_latents(
         ax.plot(time_axis, trace, color=col, label=f"Latent {d + 1}")
         ax.set_xlabel("time (index)" if time_axis is None else "time (s)")
         ax.set_ylabel("value")
-        ax.set_title(f"Latent {d + 1}")  # removed " (int)" suffix
+        ax.set_title(f"Latent {d + 1}")
 
         for st in shock_times:
             ax.axvline(st, color="red", ls="--", lw=1, alpha=0.6)
@@ -51,13 +55,18 @@ def _plot_latents(
         ax.legend()
         ax.grid(True, alpha=0.3)
         plt.tight_layout()
-        plt.show()
 
+        if return_fig:
+            figs.append(fig)               # keep handle, don’t close
+        else:
+            plt.show()
+
+    if return_fig:                          # ← NEW
+        return figs
 
 # -----------------------------------------------------------------------------
-# 1) Convenience entry‑point matching artefacts saved by fit_single_rslds
+# 1) Convenience entry-point matching artefacts saved by fit_single_rslds
 # -----------------------------------------------------------------------------
-
 def plot_latents_from_dir(
     save_dir,
     *,
@@ -65,10 +74,10 @@ def plot_latents_from_dir(
     smooth_sigma=0.0,
     colors=("tab:blue",),
     figsize=(10, 4),
+    return_fig=False,          # ← NEW
 ):
     """Load ``x_hat.npy`` & ``footshock.npy`` from *save_dir* and plot latents."""
-
-    x_file = os.path.join(save_dir, "x_hat.npy")
+    x_file     = os.path.join(save_dir, "x_hat.npy")
     shock_file = os.path.join(save_dir, "footshock.npy")
 
     if not os.path.isfile(x_file):
@@ -77,22 +86,21 @@ def plot_latents_from_dir(
         raise FileNotFoundError(shock_file)
 
     latents = np.load(x_file)
-    shocks = np.load(shock_file)
+    shocks  = np.load(shock_file)
 
-    _plot_latents(
+    return _plot_latents(
         latents,
         shocks,
         integrate=integrate,
         smooth_sigma=smooth_sigma,
         colors=colors,
         figsize=figsize,
+        return_fig=return_fig,   # ← NEW
     )
 
-
 # -----------------------------------------------------------------------------
-# 2) Back‑compat wrapper (kept almost identical to the GitHub original)
+# 2) Back-compat wrapper (kept almost identical to the GitHub original)
 # -----------------------------------------------------------------------------
-
 def load_and_plot_latents(
     base_dir,
     rat_tag,
@@ -104,14 +112,14 @@ def load_and_plot_latents(
     smooth_sigma=0.0,
     colors=("tab:blue",),
     figsize=(10, 4),
+    return_fig=False,          # ← NEW
 ):
     """Locate and plot latent trajectories + shock markers."""
-
     model_dir = os.path.join(base_dir, model_sub)
     if not os.path.isdir(model_dir):
         raise FileNotFoundError(model_dir)
 
-    x_file = os.path.join(model_dir, x_pattern.format(rat=rat_tag))
+    x_file     = os.path.join(model_dir, x_pattern.format(rat=rat_tag))
     shock_file = os.path.join(model_dir, shock_pattern.format(rat=rat_tag))
 
     if not os.path.isfile(x_file):
@@ -120,14 +128,14 @@ def load_and_plot_latents(
         raise FileNotFoundError(shock_file)
 
     latents = np.load(x_file)
-    shocks = np.load(shock_file)
+    shocks  = np.load(shock_file)
 
-    _plot_latents(
+    return _plot_latents(
         latents,
         shocks,
         integrate=integrate,
         smooth_sigma=smooth_sigma,
         colors=colors,
         figsize=figsize,
+        return_fig=return_fig,   # ← NEW
     )
-
