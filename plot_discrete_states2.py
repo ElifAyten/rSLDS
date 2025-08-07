@@ -32,7 +32,7 @@ def plot_discrete_states2(
         k = z_states[s]
         ax.hlines(k,
                   time_vec[s], time_vec[e-1],
-                  color=colors[k], lw=lw, alpha=.8)
+                  color=colors[k], lw=lw, alpha=1)
 
     # ── foot-shock markers ────────────────────────────────────────────────
     if shock_times is not None:
