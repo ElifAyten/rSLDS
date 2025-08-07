@@ -18,7 +18,12 @@ def plot_discrete_states_with_speed(
     assert z_states.shape == time_vec.shape == speed.shape
 
     # --- helpers ------------------------------------------------------------
-    speed_norm = (speed - speed.min()) / (speed.ptp())    # 0‥1
+    import numpy as np          # add to import block once at top
+
+    rng = np.ptp(speed)         # NumPy’s public ptp (peak-to-peak)
+    rng = rng if rng > 0 else 1 # avoid div-by-zero if speed is flat
+    speed_norm = (speed - speed.min()) / rng
+
     K          = z_states.max() + 1
     colors     = sns.color_palette(palette, n_colors=K)
 
