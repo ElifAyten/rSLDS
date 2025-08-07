@@ -6,7 +6,7 @@ __all__ = ["plot_discrete_states"]
 
 def plot_discrete_states(
     z_states, time_vec, shock_times=None, *,
-    palette="Set1", lw=6, min_duration=0.5,
+    palette="Set1", lw=4, min_duration=0.5,
     dot_style="line", markersize=8,
     title=None, figsize=(8, 2)
 ):
@@ -36,7 +36,7 @@ def plot_discrete_states(
                         color=colors[k], ms=markersize, zorder=3)
             else:                          # mini bar
                 ax.hlines(k, t_start, t_start+min_duration,
-                          color=colors[k], lw=lw, zorder=3, alpha=.8)
+                          color=colors[k], lw=lw, zorder=3, alpha=1)
         else:                              # long enough
             ax.hlines(k, t_start, t_end,
                       color=colors[k], lw=lw, alpha=1)
