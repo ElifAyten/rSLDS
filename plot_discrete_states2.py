@@ -10,7 +10,7 @@ def plot_discrete_states2(
     shock_times=None,  # None | 0/1 vector | timestamp list
     *,
     palette="Set1",
-    lw=6,
+    lw=4,
     title=None,
     figsize=(8, 2),
 ):
