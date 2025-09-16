@@ -3,9 +3,13 @@ This repository contains several Python modules (`name.py` files) with reusable 
 (utilities and scripts for dataset prep, dimensionality reduction, modeling, cross-validation, and evaluation 
 (such as mutual information and forward simulation error) on neural/behavioral data.).
 
-# Setup
+
+# Setup / Installations
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+Note: python 3.1 works the best with this model.
+
+
 
 # Example workflow
 python load_dataset.py --data path/to/data.h5
