@@ -20,7 +20,7 @@ def export_responsive_tables(
     out_dir     : str | Path,
     rat_tag     : str,                       # "Rat15" …
     *,
-    responses   = ("excited", "inhibited"),  # which shock labels to keep
+    responses   = ("excited", "inhibited","unresponsive"),  # which shock labels to keep
     verbose     = True,
 ):
     """
