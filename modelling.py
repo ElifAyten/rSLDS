@@ -80,7 +80,7 @@ def fit_single_rslds(
 
     # build rSLDS model
     model = ssm.SLDS(
-        FR_z.shape[1],             # D_obs (neurons)
+        FR.shape[1],             # D_obs (neurons)
         K_states,                  # K (discrete states)
         latent_dim,                # D_latent
         M=1,                       # one exogenous input (shock)
