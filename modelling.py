@@ -97,7 +97,7 @@ def fit_single_rslds(
         inputs=[u],
         num_iters=num_iters,
         method="bbvi",
-        variational_posterior="meanfield",
+        variational_posterior="lds",
     )
 
     x_hat = post.mean[0]                          # (T, latent_dim)
