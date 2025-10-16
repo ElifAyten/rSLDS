@@ -28,7 +28,7 @@ def fit_single_rslds(
     variance_goal=0.90,
     latent_dim=None,
     kappa=0.0,                
-    K_states=2,
+    K_states=3,
     num_iters=300,
     overwrite=False,
     verbose=True,
