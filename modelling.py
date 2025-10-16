@@ -93,7 +93,7 @@ def fit_single_rslds(
 
     # fit with variational inference 
     elbos, post = model.fit(
-        [FR_z],
+        [FR],
         inputs=[u],
         num_iters=num_iters,
         method="bbvi",
