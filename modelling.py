@@ -116,7 +116,7 @@ def fit_single_rslds(
     np.save(save_dir / "elbos.npy", elbos)
     np.save(save_dir / "x_hat.npy",  x_hat)
     np.save(save_dir / "z_hat.npy",  z_hat)
-    np.save(save_dir / "FR_z.npy",   FR_z)
+    np.save(save_dir / "FR.npy",   FR)
     np.save(save_dir / "footshock.npy", u)
     np.save(save_dir / "speed.npy",  speed)
 
