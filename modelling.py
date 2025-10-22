@@ -101,7 +101,7 @@ def fit_single_rslds(
     )
 
     x_hat = post.mean[0]                          # (T, latent_dim)
-    z_hat = model.most_likely_states(x_hat, FR_z)
+    z_hat = model.most_likely_states(x_hat, FR)
 
     # save artefacts
     with open(save_dir / "rSLDS.pkl", "wb") as f:
